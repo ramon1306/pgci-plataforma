@@ -1,0 +1,23 @@
+# ------------------------------------------------------------------
+# CONFIGURACIÓN DE IGNORAR ARCHIVOS PARA EL PROYECTO PGCI (DJANGO + REACT)
+# ------------------------------------------------------------------
+
+# 1. IGNORAR ENTORNO VIRTUAL PYTHON
+# No subir la carpeta que contiene todas las librerías de Python.
+venv/
+
+# 2. IGNORAR CARPETAS Y ARCHIVOS DE PYTHON
+# Archivos de caché y compilación.
+*.pyc
+__pycache__/
+*.sqlite3
+
+# 3. IGNORAR DEPENDENCIAS DE NODE.JS (FRONTEND)
+# No subir la carpeta que contiene los miles de archivos de NPM.
+frontend/node_modules
+
+# 4. IGNORAR ARCHIVOS DE CONFIGURACIÓN Y LOGS
+# Nunca subir credenciales, logs de errores, ni archivos de configuración local.
+*.log
+backend/.env
+frontend/.env

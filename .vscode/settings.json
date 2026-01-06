@@ -1,0 +1,18 @@
+// .vscode/settings.json
+{
+    // 1. Define el intérprete de Python (CRUCIAL)
+    // VS Code buscará el ejecutable 'python.exe' dentro del venv/Scripts/.
+    // ${workspaceFolder} apunta a la raíz del proyecto (pgci-plataforma).
+    "python.defaultInterpreterPath": "${workspaceFolder}\\venv\\Scripts\\python.exe",
+
+    // 2. Habilita el formateo al guardar (opcional, pero muy recomendado)
+    "editor.formatOnSave": true,
+
+    // 3. Configuración para el autocompletado y linter de Django
+    // Esto asegura que Django pueda leer las variables de entorno para la configuración
+    "python.envFile": "${workspaceFolder}/backend/.env",
+
+    // 4. Configuración para el linter de Python (Ej: Pylint o Flake8)
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.autoImportCompletions": true
+}
