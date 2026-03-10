@@ -1,42 +1,40 @@
-// frontend/src/App.js
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-// Importación de Páginas de la Fase 1
-import SelectCompanyPage from './pages/SelectCompanyPage.jsx';
+// Páginas
 import HomePage from './pages/HomePage';
-import ServicesPage from './pages/ServicesPage';
-import ContactPage from './pages/ContactPage';
 import LoginPage from './pages/LoginPage';
-import BlogListPage from './pages/BlogListPage';
+import SelectCompanyPage from './pages/SelectCompanyPage';
 import DashboardPage from './pages/DashboardPage';
+import AdminPanel from './pages/AdminPanel';
 
-import ProtectedRoute from './components/ProtectedRoute';
-
-// Componente para manejar el diseño general (Header/Footer)
+// Componentes
+import ProtectedRoute from './components/ProtectedRoute'; // El que acabamos de crear
 import Layout from './components/Layout/Layout';
 
 function App() {
     return (
         <Router>
             <Routes>
-                {/* --- BLOQUE PROTEGIDO --- */}
-                <Route element={<ProtectedRoute />}>
-                    {/* Todo lo que esté aquí adentro requiere TOKEN */}
-                    <Route path="app/select-company" element={<SelectCompanyPage />} />
-                    <Route path="app/dashboard" element={<DashboardPage />} />
+                {/* --- RUTAS PRIVADAS (CLIENTES Y ADMIN) --- */}
+                <Route element={<ProtectedRoute adminOnly={false} />}>
+                    <Route path="/select-company" element={<SelectCompanyPage />} />
+                    <Route path="/dashboard" element={<DashboardPage />} />
                 </Route>
-                {/* RUTAS PÚBLICAS (Fase 1: Fachada Digital) */}
+
+                {/* --- RUTAS SOLO PARA ADMIN --- */}
+                <Route element={<ProtectedRoute adminOnly={true} />}>
+                    <Route path="/admin" element={<AdminPanel />} />
+                </Route>
+
+                {/* --- RUTAS PÚBLICAS --- */}
                 <Route path="/" element={<Layout />}>
                     <Route index element={<HomePage />} />
-                    <Route path="servicios" element={<ServicesPage />} />
-                    <Route path="contacto" element={<ContactPage />} />
-                    <Route path="blog" element={<BlogListPage />} />
                     <Route path="login" element={<LoginPage />} />
                 </Route>
 
-                {/* FUTURAS RUTAS PRIVADAS (Fase 2: /app) */}
-                {/* <Route path="app/*" element={<PrivateRouteLayout />} /> */}
+                {/* Redirección por defecto */}
+                <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </Router>
     );

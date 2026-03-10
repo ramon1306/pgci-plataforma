@@ -1,23 +1,35 @@
 # ------------------------------------------------------------------
-# CONFIGURACIÓN DE IGNORAR ARCHIVOS PARA EL PROYECTO PGCI (DJANGO + REACT)
+# CONFIGURACIÓN DE IGNORAR ARCHIVOS PARA EL PROYECTO (DJANGO + REACT)
 # ------------------------------------------------------------------
 
-# 1. IGNORAR ENTORNO VIRTUAL PYTHON
-# No subir la carpeta que contiene todas las librerías de Python.
+# 1. ENTORNOS VIRTUALES Y PYTHON
 venv/
-
-# 2. IGNORAR CARPETAS Y ARCHIVOS DE PYTHON
-# Archivos de caché y compilación.
+env/
+ENV/
 *.pyc
 __pycache__/
 *.sqlite3
 
-# 3. IGNORAR DEPENDENCIAS DE NODE.JS (FRONTEND)
-# No subir la carpeta que contiene los miles de archivos de NPM.
-frontend/node_modules
+# 2. CARPETA MEDIA (¡MUY IMPORTANTE!)
+# Aquí es donde Django guarda los PDFs y archivos de las empresas.
+# No queremos subir documentos reales de clientes a GitHub.
+media/
 
-# 4. IGNORAR ARCHIVOS DE CONFIGURACIÓN Y LOGS
-# Nunca subir credenciales, logs de errores, ni archivos de configuración local.
+# 3. FRONTEND (REACT)
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+.eslintcache
+
+# 4. VARIABLES DE ENTORNO Y LOGS
+.env
 *.log
 backend/.env
 frontend/.env
+
+# 5. ARCHIVOS DE SISTEMA / EDITORES
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

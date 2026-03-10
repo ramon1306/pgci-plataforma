@@ -9,4 +9,4 @@ class ConsultaContacto(models.Model):
     leido = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Consulta de {self.nombre} - {self.asunto}"
+        return f"{self.nombre} - {self.asunto}"

@@ -1,16 +1,21 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 
-const ProtectedRoute = () => {
-    // Verificamos si existe el token en el localStorage
-    const token = localStorage.getItem('auth_token');
+const ProtectedRoute = ({ adminOnly = false }) => {
+    const token = sessionStorage.getItem('auth_token');
+    const isStaff = sessionStorage.getItem('is_staff') === 'true';
 
-    // Si no hay token, redirigimos al login
+    // 1. Si no hay token, fuera al login
     if (!token) {
         return <Navigate to="/login" replace />;
     }
 
-    // Si hay token, permitimos el acceso a la ruta solicitada (Outlet)
+    // 2. Si la ruta requiere admin y el usuario no lo es, al select-company
+    if (adminOnly && !isStaff) {
+        return <Navigate to="/select-company" replace />;
+    }
+
+    // 3. Si todo está bien, renderiza las rutas hijas
     return <Outlet />;
 };
 
