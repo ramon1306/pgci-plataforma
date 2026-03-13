@@ -85,3 +85,16 @@ class ConsultaContacto(models.Model):
 
     def __str__(self):
         return f"{self.nombre} - {self.asunto}"
+    
+class Novedad(models.Model):
+    titulo = models.CharField(max_length=200)
+    contenido = models.TextField()
+    fecha = models.DateTimeField(auto_now_add=True)
+    importante = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name_plural = "Novedades"
+        ordering = ['-fecha'] # Las más nuevas primero
+
+    def __str__(self):
+        return self.titulo
