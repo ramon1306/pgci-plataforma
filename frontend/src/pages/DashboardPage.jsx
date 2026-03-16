@@ -1,254 +1,265 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const DashboardPage = () => {
+    const [documentos, setDocumentos] = useState([]);
+    const [novedades, setNovedades] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    // Estados para la nueva novedad (Staff)
+    const [nuevaNovedad, setNuevaNovedad] = useState({ titulo: '', contenido: '' });
+    const [enviandoNovedad, setEnviandoNovedad] = useState(false);
+
     const navigate = useNavigate();
 
-    const [empresa, setEmpresa] = useState({
-        nombre: 'Cargando...',
-        id: '',
-        rol: '',
-        permiso_subida: false
-    });
-    const [documentos, setDocumentos] = useState([]);
-    const [loadingDocs, setLoadingDocs] = useState(true);
-    const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
-    const [subiendo, setSubiendo] = useState(false);
-    const [progreso, setProgreso] = useState(0);
-
+    // Recuperamos la info del contexto actual
+    const empresaId = sessionStorage.getItem('empresa_id');
+    const empresaNombre = sessionStorage.getItem('empresa_nombre') || "Empresa";
+    const rolUsuario = sessionStorage.getItem('rol_usuario');
+    const puedeSubir = sessionStorage.getItem('permiso_subida') === 'true';
     const isStaff = sessionStorage.getItem('is_staff') === 'true';
-    const rawRole = sessionStorage.getItem('rol_usuario') || '';
-    const canAccessAdmin = isStaff || ['ADMIN', 'DUENO', 'ADMINISTRADOR'].includes(rawRole.toUpperCase());
 
-    const fetchDocumentos = useCallback(async (empresaId, token) => {
-        if (!empresaId || empresaId === "undefined") return;
-        setLoadingDocs(true);
-        try {
-            const response = await axios.get(`http://127.0.0.1:8000/api/v1/documentos/?empresa=${empresaId}`, {
-                headers: { 'Authorization': `Token ${token}` }
-            });
-            setDocumentos(response.data);
-        } catch (err) {
-            console.error("Error al cargar documentos:", err);
-            if (err.response?.status === 404 || JSON.stringify(err.response?.data).includes("inválida")) {
-                sessionStorage.removeItem('empresa_id');
-                navigate('/select-company');
-            }
-        } finally {
-            setLoadingDocs(false);
-        }
-    }, [navigate]);
-
-    useEffect(() => {
+    // --- CARGA DE DOCUMENTOS FILTRADOS ---
+    const fetchDocumentos = useCallback(async () => {
         const token = sessionStorage.getItem('auth_token');
-        let empresaId = sessionStorage.getItem('empresa_id');
-        const empresaNombre = sessionStorage.getItem('empresa_nombre');
-
-        if (!token) { navigate('/login'); return; }
-
-        // REFUERZO: Si el ID viene como "[object Object]", lo limpiamos
-        if (!empresaId || empresaId === "undefined" || empresaId.includes("Object")) {
+        if (!token || !empresaId) {
             navigate('/select-company');
             return;
         }
+        try {
+            const res = await axios.get(`http://127.0.0.1:8000/api/v1/documentos/?empresa=${empresaId}`, {
+                headers: { 'Authorization': `Token ${token}` }
+            });
+            setDocumentos(res.data);
+        } catch (err) {
+            console.error("Error cargando documentos:", err);
+        }
+    }, [empresaId, navigate]);
 
-        setEmpresa({
-            nombre: empresaNombre || 'Empresa',
-            id: empresaId,
-            rol: rawRole,
-            permiso_subida: sessionStorage.getItem('permiso_subida') === 'true'
-        });
-
-        fetchDocumentos(empresaId, token);
-    }, [navigate, rawRole, fetchDocumentos]);
-
-    const handleFileUpload = async (e) => {
-        e.preventDefault();
+    // --- CARGA DE NOVEDADES FILTRADAS ---
+    const fetchNovedades = useCallback(async () => {
         const token = sessionStorage.getItem('auth_token');
-        const empresaIdSeguro = empresa.id; // Usamos el ID del estado que ya está validado
+        if (!token || !empresaId) return;
 
-        if (!archivoSeleccionado) return alert("Por favor, selecciona un archivo.");
+        try {
+            const res = await axios.get(`http://127.0.0.1:8000/api/v1/novedades/?empresa=${empresaId}`, {
+                headers: { 'Authorization': `Token ${token}` }
+            });
+            setNovedades(res.data);
+        } catch (err) {
+            console.error("Error cargando novedades:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [empresaId]);
 
+    // --- PUBLICAR NOVEDAD (SOLO STAFF) ---
+    const handleCreateNovedad = async (e) => {
+        e.preventDefault();
+        if (!nuevaNovedad.titulo || !nuevaNovedad.contenido) return;
+
+        const token = sessionStorage.getItem('auth_token');
+        setEnviandoNovedad(true);
+        try {
+            await axios.post('http://127.0.0.1:8000/api/v1/novedades/', {
+                titulo: nuevaNovedad.titulo,
+                contenido: nuevaNovedad.contenido,
+                empresa: empresaId // Se vincula a la empresa actual
+            }, {
+                headers: { 'Authorization': `Token ${token}` }
+            });
+            setNuevaNovedad({ titulo: '', contenido: '' });
+            fetchNovedades(); // Recargar lista
+        } catch (err) {
+            alert("Error al publicar la novedad");
+        } finally {
+            setEnviandoNovedad(false);
+        }
+    };
+
+    // --- ELIMINAR NOVEDAD (SOLO STAFF) ---
+    const handleDeleteNovedad = async (id) => {
+        if (!window.confirm("¿Estás seguro de que deseas eliminar este aviso?")) return;
+        const token = sessionStorage.getItem('auth_token');
+        try {
+            await axios.delete(`http://127.0.0.1:8000/api/v1/novedades/${id}/`, {
+                headers: { 'Authorization': `Token ${token}` }
+            });
+            setNovedades(prev => prev.filter(n => n.id !== id));
+        } catch (err) {
+            alert("No se pudo eliminar la novedad.");
+        }
+    };
+
+    useEffect(() => {
+        fetchDocumentos();
+        fetchNovedades();
+    }, [fetchDocumentos, fetchNovedades]);
+
+    // --- LÓGICA DE SUBIDA DE ARCHIVOS ---
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const token = sessionStorage.getItem('auth_token');
         const formData = new FormData();
-        formData.append('nombre', archivoSeleccionado.name);
-        formData.append('archivo', archivoSeleccionado);
-        formData.append('empresa', empresaIdSeguro);
-
-        setSubiendo(true);
-        setProgreso(0);
+        formData.append('archivo', file);
+        formData.append('nombre', file.name);
+        formData.append('empresa', empresaId);
 
         try {
             await axios.post('http://127.0.0.1:8000/api/v1/documentos/', formData, {
                 headers: {
                     'Authorization': `Token ${token}`,
                     'Content-Type': 'multipart/form-data'
-                },
-                onUploadProgress: (progressEvent) => {
-                    const porc = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    setProgreso(porc);
                 }
             });
             alert("✅ Archivo subido con éxito");
-            setArchivoSeleccionado(null);
-            // Resetear el input file manualmente si es necesario
-            e.target.reset();
-            setProgreso(0);
-            fetchDocumentos(empresaIdSeguro, token);
+            fetchDocumentos();
         } catch (err) {
-            const errorMsg = JSON.stringify(err.response?.data || "Error de red");
-            alert("❌ Error: " + errorMsg);
-            if (errorMsg.includes("inválida")) {
-                sessionStorage.removeItem('empresa_id');
-                navigate('/select-company');
-            }
-        } finally {
-            setSubiendo(false);
+            alert("❌ Error al subir el archivo");
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm("¿Seguro que deseas eliminar este documento?")) return;
-        const token = sessionStorage.getItem('auth_token');
-        try {
-            await axios.delete(`http://127.0.0.1:8000/api/v1/documentos/${id}/`, {
-                headers: { 'Authorization': `Token ${token}` }
-            });
-            setDocumentos(prev => prev.filter(doc => doc.id !== id));
-        } catch (err) {
-            alert("❌ No se pudo eliminar el documento.");
-        }
-    };
-
-    const handleLogout = () => {
-        sessionStorage.clear();
-        navigate('/login', { replace: true });
-    };
+    if (loading) return <div style={styles.loader}>Cargando panel de {empresaNombre}...</div>;
 
     return (
-        <div style={styles.layout}>
-            <aside style={styles.sidebar}>
-                <div style={styles.logoSec}>
-                    <h2 style={styles.brand}>A&D Sistema</h2>
-                    <p style={styles.subBrand}>{empresa.nombre}</p>
+        <div style={styles.container}>
+            {/* Cabecera Principal */}
+            <header style={styles.header}>
+                <div>
+                    <h1 style={styles.title}>{empresaNombre}</h1>
+                    <span style={styles.roleBadge}>{rolUsuario?.replace('_', ' ')}</span>
                 </div>
-                <nav style={styles.nav}>
-                    <div style={styles.navItemActive} onClick={() => navigate('/dashboard')}>📊 Dashboard</div>
-                    <div style={styles.navItem} onClick={() => navigate('/select-company')}>🏢 Cambiar Empresa</div>
-                    {canAccessAdmin && (
-                        <div style={styles.adminNav} onClick={() => navigate('/admin')}>⚙️ Panel Admin</div>
-                    )}
-                </nav>
-                <button onClick={handleLogout} style={styles.logout}>Cerrar Sesión</button>
-            </aside>
+                <div style={styles.btnGroup}>
+                    <button onClick={() => navigate('/select-company')} style={styles.secondaryBtn}>Cambiar Empresa</button>
+                    <button onClick={() => { sessionStorage.clear(); navigate('/login'); }} style={styles.logoutBtn}>Salir</button>
+                </div>
+            </header>
 
+            {/* SECCIÓN DE NOVEDADES */}
+            <section style={styles.novedadesSection}>
+                <h3 style={{ color: '#003366', marginTop: 0 }}>📢 Novedades y Avisos</h3>
+
+                {/* Formulario rápido para Staff */}
+                {isStaff && (
+                    <form onSubmit={handleCreateNovedad} style={styles.novedadForm}>
+                        <input
+                            style={styles.formInput}
+                            placeholder="Título del aviso..."
+                            value={nuevaNovedad.titulo}
+                            onChange={(e) => setNuevaNovedad({ ...nuevaNovedad, titulo: e.target.value })}
+                        />
+                        <textarea
+                            style={styles.formTextarea}
+                            placeholder="Contenido del mensaje..."
+                            value={nuevaNovedad.contenido}
+                            onChange={(e) => setNuevaNovedad({ ...nuevaNovedad, contenido: e.target.value })}
+                        />
+                        <button type="submit" disabled={enviandoNovedad} style={styles.formBtn}>
+                            {enviandoNovedad ? 'Publicando...' : 'Publicar Aviso'}
+                        </button>
+                    </form>
+                )}
+
+                <div style={styles.novedadesGrid}>
+                    {novedades.length > 0 ? (
+                        novedades.map(n => (
+                            <div key={n.id} style={styles.novedadCard}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <small style={styles.novedadFecha}>{new Date(n.fecha || n.created_at).toLocaleDateString()}</small>
+                                    {isStaff && (
+                                        <button onClick={() => handleDeleteNovedad(n.id)} style={styles.deleteNovedadBtn}>✕</button>
+                                    )}
+                                </div>
+                                <h4 style={{ margin: '5px 0' }}>{n.titulo}</h4>
+                                <p style={{ fontSize: '0.85rem', color: '#444' }}>{n.contenido}</p>
+                            </div>
+                        ))
+                    ) : (
+                        <p style={{ color: '#999', fontSize: '0.9rem' }}>No hay comunicados para esta empresa.</p>
+                    )}
+                </div>
+            </section>
+
+            {/* SECCIÓN DE DOCUMENTOS */}
             <main style={styles.main}>
-                <header style={styles.header}>
-                    <div>
-                        <h1 style={styles.title}>Mis Documentos</h1>
-                        <p style={{ color: '#666' }}>Mostrando archivos de: <strong>{empresa.nombre}</strong></p>
-                    </div>
-                    <div style={styles.badge}>
-                        Rol: <strong>{empresa.rol.replace('_', ' ')}</strong>
-                    </div>
-                </header>
+                <div style={styles.sectionHeader}>
+                    <h2>📂 Repositorio de Documentos</h2>
+                    {puedeSubir && (
+                        <div>
+                            <button
+                                style={styles.uploadBtn}
+                                onClick={() => document.getElementById('quick-upload').click()}
+                            >
+                                + Subir Documento
+                            </button>
+                            <input
+                                id="quick-upload"
+                                type="file"
+                                style={{ display: 'none' }}
+                                onChange={handleFileUpload}
+                            />
+                        </div>
+                    )}
+                </div>
 
                 <div style={styles.grid}>
-                    <div style={styles.card}>
-                        <h3>Repositorio Digital</h3>
-                        <table style={styles.table}>
-                            <thead>
-                                <tr>
-                                    <th style={styles.th}>Nombre del Archivo</th>
-                                    <th style={styles.th}>Subido el</th>
-                                    <th style={styles.th}>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {documentos.length > 0 ? (
-                                    documentos.map(doc => (
-                                        <tr key={doc.id} style={styles.row}>
-                                            <td style={styles.td}>{doc.nombre}</td>
-                                            <td style={styles.td}>{new Date(doc.fecha_subida).toLocaleDateString()}</td>
-                                            <td style={{ ...styles.td, display: 'flex', gap: '8px' }}>
-                                                <a href={doc.archivo_url || doc.archivo} target="_blank" rel="noreferrer" style={styles.btnView}>Ver</a>
-                                                {(isStaff || empresa.permiso_subida) && (
-                                                    <button onClick={() => handleDelete(doc.id)} style={styles.btnDelete}>Borrar</button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="3" style={styles.empty}>
-                                            {loadingDocs ? 'Cargando documentos...' : 'No se encontraron archivos.'}
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        {(isStaff || empresa.permiso_subida) && (
-                            <div style={{ ...styles.card, border: '2px dashed #37c778' }}>
-                                <h3 style={{ color: '#1e7e4a', fontSize: '1rem' }}>📤 Subir Documento</h3>
-                                <form onSubmit={handleFileUpload} style={styles.form}>
-                                    <input type="file" onChange={(e) => setArchivoSeleccionado(e.target.files[0])} style={{ fontSize: '0.8rem' }} />
-                                    <button type="submit" disabled={subiendo} style={styles.btnUpload}>
-                                        {subiendo ? 'Enviando...' : 'Subir Ahora'}
-                                    </button>
-                                </form>
-                                {subiendo && (
-                                    <div style={styles.progressBg}>
-                                        <div style={{ ...styles.progressBar, width: `${progreso}%` }}></div>
-                                        <span style={styles.progressText}>{progreso}%</span>
-                                    </div>
-                                )}
+                    {documentos.length > 0 ? (
+                        documentos.map(doc => (
+                            <div key={doc.id} style={styles.card}>
+                                <div style={styles.fileIcon}>📄</div>
+                                <div style={styles.fileInfo}>
+                                    <h4 style={styles.fileName}>{doc.nombre}</h4>
+                                    <p style={styles.fileDate}>Fecha: {new Date(doc.fecha_subida).toLocaleDateString()}</p>
+                                </div>
+                                <a href={doc.archivo_url || doc.archivo} target="_blank" rel="noreferrer" style={styles.downloadLink}>Ver/Descargar</a>
                             </div>
-                        )}
-                        <div style={styles.card}>
-                            <h3 style={{ marginTop: 0, fontSize: '0.9rem' }}>Estado</h3>
-                            <div style={styles.alertItem}>🔒 Conexión Segura</div>
+                        ))
+                    ) : (
+                        <div style={styles.emptyState}>
+                            <p>Esta empresa no posee documentos cargados actualmente.</p>
                         </div>
-                    </div>
+                    )}
                 </div>
             </main>
         </div>
     );
 };
 
-// --- Objeto de Estilos ---
 const styles = {
-    layout: { display: 'flex', minHeight: '100vh', backgroundColor: '#f4f7f6', fontFamily: 'Segoe UI, sans-serif' },
-    sidebar: { width: '250px', backgroundColor: '#001f3f', color: 'white', padding: '25px', display: 'flex', flexDirection: 'column' },
-    logoSec: { borderBottom: '1px solid #ffffff22', marginBottom: '25px', paddingBottom: '15px' },
-    brand: { margin: 0, fontSize: '1.2rem' },
-    subBrand: { color: '#37c778', fontSize: '0.75rem', margin: '5px 0', fontWeight: 'bold' },
-    nav: { flex: 1 },
-    navItem: { padding: '12px', cursor: 'pointer', borderRadius: '8px', marginBottom: '8px', opacity: 0.8 },
-    navItemActive: { padding: '12px', cursor: 'pointer', borderRadius: '8px', backgroundColor: '#ffffff15', fontWeight: 'bold' },
-    adminNav: { padding: '12px', cursor: 'pointer', color: '#ffcc00', border: '1px dashed #ffcc00', borderRadius: '8px', marginTop: '15px' },
-    logout: { backgroundColor: 'transparent', color: '#ff4444', border: '1px solid #ff4444', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
-    main: { flex: 1, padding: '40px', overflowY: 'auto' },
-    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' },
-    title: { margin: 0, color: '#003366', fontSize: '1.8rem' },
-    badge: { backgroundColor: 'white', padding: '10px 20px', borderRadius: '30px', boxShadow: '0 4px 10px #00000008' },
-    grid: { display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '30px' },
-    card: { backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 8px 25px #00000005' },
-    table: { width: '100%', borderCollapse: 'collapse' },
-    th: { textAlign: 'left', padding: '12px', borderBottom: '2px solid #f4f7f6', color: '#999', fontSize: '0.75rem', textTransform: 'uppercase' },
-    td: { padding: '15px 12px', borderBottom: '1px solid #f8f9fa', fontSize: '0.9rem' },
-    row: { transition: '0.2s' },
-    btnView: { backgroundColor: '#37c778', color: 'white', padding: '6px 12px', borderRadius: '6px', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 'bold' },
-    btnDelete: { backgroundColor: '#ff4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' },
-    empty: { textAlign: 'center', padding: '50px', color: '#bbb' },
-    form: { display: 'flex', flexDirection: 'column', gap: '15px' },
-    btnUpload: { backgroundColor: '#37c778', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
-    progressBg: { width: '100%', height: '18px', backgroundColor: '#eee', borderRadius: '9px', marginTop: '12px', overflow: 'hidden', position: 'relative' },
-    progressBar: { height: '100%', backgroundColor: '#37c778', transition: 'width 0.4s ease' },
-    progressText: { position: 'absolute', width: '100%', textAlign: 'center', top: '1px', fontSize: '0.7rem', fontWeight: 'bold', color: '#333' },
-    alertItem: { backgroundColor: '#e8f7ef', padding: '10px', borderRadius: '8px', color: '#1e7e4a', fontSize: '0.75rem', textAlign: 'center', fontWeight: 'bold' }
+    container: { minHeight: '100vh', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif' },
+    header: { backgroundColor: '#003366', color: 'white', padding: '15px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+    title: { margin: 0, fontSize: '1.4rem' },
+    roleBadge: { fontSize: '0.75rem', backgroundColor: '#004a99', padding: '4px 10px', borderRadius: '12px', textTransform: 'uppercase' },
+    btnGroup: { display: 'flex', gap: '10px' },
+    secondaryBtn: { background: 'transparent', border: '1px solid white', color: 'white', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' },
+    logoutBtn: { background: '#cc0000', border: 'none', color: 'white', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' },
+    novedadesSection: { padding: '20px 40px', backgroundColor: '#fff', borderBottom: '1px solid #ddd' },
+
+    // Estilos del nuevo formulario
+    novedadForm: { display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '500px', marginBottom: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '8px', border: '1px solid #eee' },
+    formInput: { padding: '8px', borderRadius: '4px', border: '1px solid #ccc' },
+    formTextarea: { padding: '8px', borderRadius: '4px', border: '1px solid #ccc', minHeight: '60px', resize: 'vertical' },
+    formBtn: { backgroundColor: '#003366', color: 'white', border: 'none', padding: '8px', borderRadius: '4px', cursor: 'pointer' },
+
+    novedadesGrid: { display: 'flex', gap: '15px', overflowX: 'auto', paddingBottom: '10px' },
+    novedadCard: { minWidth: '250px', maxWidth: '300px', backgroundColor: '#fffdf0', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #ffcc00', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', position: 'relative' },
+    novedadFecha: { color: '#888', fontSize: '0.7rem' },
+    deleteNovedadBtn: { background: 'none', border: 'none', color: '#cc0000', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', padding: '0 5px' },
+    main: { padding: '30px 40px' },
+    sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
+    uploadBtn: { backgroundColor: '#28a745', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' },
+    grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' },
+    card: { backgroundColor: 'white', padding: '15px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' },
+    fileIcon: { fontSize: '1.8rem' },
+    fileInfo: { flex: 1 },
+    fileName: { margin: '0', fontSize: '0.95rem', color: '#333' },
+    fileDate: { margin: 0, fontSize: '0.75rem', color: '#999' },
+    downloadLink: { color: '#003366', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.85rem' },
+    emptyState: { textAlign: 'center', gridColumn: '1/-1', padding: '40px', color: '#888' },
+    loader: { textAlign: 'center', marginTop: '50px', fontSize: '1.1rem' }
 };
 
 export default DashboardPage;
