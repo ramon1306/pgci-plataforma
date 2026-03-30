@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Base de datos profesional para producción
+  db:
+    image: postgres:15
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=pgci_db
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password_seguro
+
+  # Backend Django optimizado para VPS
+  backend:
+    build: ./backend
+    restart: always
+    # Este comando hace 3 cosas: migra la DB, recolecta CSS/JS y arranca el servidor Gunicorn
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn --bind 0.0.0.0:8000 pgci_api.wsgi:application"
+    volumes:
+      - ./backend/static:/app/static_root
+      - ./backend/media:/app/media_root
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=pgci_api.settings_prod
+      - DATABASE_URL=postgres://admin:password_seguro@db:5432/pgci_db
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

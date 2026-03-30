@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Empresa, ClienteEmpresa, ConsultaContacto, Cliente, Documento
+from .models import Empresa, ClienteEmpresa, ConsultaContacto, Cliente, Documento, Novedad
 from django.db import transaction
 
 # --- SERIALIZADOR DE USUARIOS (CLIENTES) ---
@@ -95,3 +95,14 @@ class ConsultaContactoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConsultaContacto
         fields = ['id', 'nombre', 'email', 'asunto', 'mensaje', 'fecha_envio', 'leido']
+        
+# --- SERIALIZADOR DE NOVEDADES ---
+class NovedadSerializer(serializers.ModelSerializer):
+    # Esto permite que React envíe el ID numérico, pero Django sepa que es una Empresa
+    empresa = serializers.PrimaryKeyRelatedField(queryset=Empresa.objects.all())
+    # Esto sirve para mostrar el nombre en el listado de React sin esfuerzo extra
+    empresa_nombre = serializers.ReadOnlyField(source='empresa.razon_social')
+
+    class Meta:
+        model = Novedad
+        fields = ['id', 'empresa', 'empresa_nombre', 'titulo', 'contenido', 'fecha', 'importante']

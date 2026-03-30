@@ -24,9 +24,13 @@ const LoginPage = () => {
         setError(null);
         setLoading(true);
 
+        const API_BASE_URL = "http://104.236.113.179:8000";
+
         try {
             // Llamada al endpoint que configuramos en apps/core/views.py (CustomLoginView)
-            const res = await axios.post('http://127.0.0.1:8000/api/v1/login/', credentials);
+            // const res = await axios.post('http://127.0.0.1:8000/api/v1/login/', credentials);
+            // const res = await axios.post('http://127.0.0.1:8000/api/v1/login/', credentials);
+            const res = await axios.post(`${API_BASE_URL}/api/v1/login/`, credentials);
 
             // Guardamos los datos recibidos (token, is_staff, username)
             sessionStorage.setItem('auth_token', res.data.token);

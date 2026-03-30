@@ -41,7 +41,6 @@ class ClienteEmpresa(models.Model):
     permiso_subida = models.BooleanField(default=False)
 
     class Meta:
-        # Clave primaria compuesta lógica para evitar duplicados
         unique_together = ('cliente', 'empresa') 
         verbose_name = "Vínculo Cliente-Empresa"
         verbose_name_plural = "Vínculos Cliente-Empresa"
@@ -50,25 +49,17 @@ class ClienteEmpresa(models.Model):
         return f"{self.cliente.user.username} -> {self.empresa.razon_social} ({self.rol})"
 
 # --- GESTIÓN DE DOCUMENTOS ---
-def ruta_documentos_empresa(instance, filename):
-    # Organiza archivos por Empresa/Año/Mes para que no se mezclen
-    return f'documentos/empresa_{instance.empresa.id}/{instance.fecha_subida.year}/{instance.fecha_subida.month}/{filename}'
-
 class Documento(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='documentos')
     nombre = models.CharField(max_length=255)
-    archivo = models.FileField(upload_to='documentos/%Y/%m/') # O usa ruta_documentos_empresa
+    archivo = models.FileField(upload_to='documentos/%Y/%m/')
     fecha_subida = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-fecha_subida'] # Los más nuevos aparecen primero
+        ordering = ['-fecha_subida']
 
     def __str__(self):
         return f"{self.nombre} ({self.empresa.razon_social})"
-
-    @property
-    def archivo_url(self):
-        return self.archivo.url if self.archivo else ""
 
 # --- CONTACTO ---
 class ConsultaContacto(models.Model):
@@ -85,8 +76,12 @@ class ConsultaContacto(models.Model):
 
     def __str__(self):
         return f"{self.nombre} - {self.asunto}"
-    
+
+# --- NOVEDADES POR EMPRESA ---
 class Novedad(models.Model):
+    """Noticias o avisos específicos para cada empresa."""
+    # Añadimos la relación con Empresa
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='novedades')
     titulo = models.CharField(max_length=200)
     contenido = models.TextField()
     fecha = models.DateTimeField(auto_now_add=True)
@@ -94,7 +89,7 @@ class Novedad(models.Model):
 
     class Meta:
         verbose_name_plural = "Novedades"
-        ordering = ['-fecha'] # Las más nuevas primero
+        ordering = ['-fecha']
 
     def __str__(self):
-        return self.titulo
+        return f"[{self.empresa.razon_social}] {self.titulo}"

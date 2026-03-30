@@ -7,7 +7,8 @@ from apps.core.views import (
     EmpresaViewSet,
     AdminUsuarioViewSet,
     VinculosViewSet,
-    DocumentoViewSet
+    DocumentoViewSet,
+    NovedadViewSet  # <-- Importación agregada aquí
 )
 
 router = DefaultRouter()
@@ -23,6 +24,9 @@ router.register(r'vinculos', VinculosViewSet, basename='vinculos')
 
 # 'documentos' coincide con tu AdminPanel.jsx
 router.register(r'documentos', DocumentoViewSet, basename='documento')
+
+# 'novedades' para el feed del Dashboard
+router.register(r'novedades', NovedadViewSet, basename='novedades')
 
 urlpatterns = [
     # Auth y endpoints específicos

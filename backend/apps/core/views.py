@@ -97,13 +97,15 @@ class NovedadViewSet(viewsets.ModelViewSet):
             qs = Novedad.objects.filter(empresa_id__in=list(vinculos))
 
         # IMPORTANTE: Esto aplica el filtro que envía el Frontend
-        if empresa_id:
+        if empresa_id and empresa_id != 'null' and empresa_id != 'undefined':
             qs = qs.filter(empresa_id=empresa_id)
             
         return qs.order_by('-fecha')
 
     def perform_create(self, serializer):
-        # Al crear desde el Dashboard, aseguramos que se guarde la empresa
+        # SEGURIDAD: Solo el Staff o usuarios con permiso especial deberían crear novedades
+        if not self.request.user.is_staff:
+            raise PermissionDenied("Solo el personal administrativo puede publicar novedades.")
         serializer.save()
 
 class DocumentoViewSet(viewsets.ModelViewSet):

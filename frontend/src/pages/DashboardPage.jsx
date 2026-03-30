@@ -20,6 +20,10 @@ const DashboardPage = () => {
     const puedeSubir = sessionStorage.getItem('permiso_subida') === 'true';
     const isStaff = sessionStorage.getItem('is_staff') === 'true';
 
+    // Definimos la base de la API desde el entorno
+    // const API_BASE_URL = process.env.REACT_APP_API_URL;
+    const API_BASE_URL = "http://104.236.113.179:8000/api";
+
     // --- CARGA DE DOCUMENTOS FILTRADOS ---
     const fetchDocumentos = useCallback(async () => {
         const token = sessionStorage.getItem('auth_token');
@@ -28,14 +32,14 @@ const DashboardPage = () => {
             return;
         }
         try {
-            const res = await axios.get(`http://127.0.0.1:8000/api/v1/documentos/?empresa=${empresaId}`, {
+            const res = await axios.get(`${API_BASE_URL}/documentos/?empresa=${empresaId}`, {
                 headers: { 'Authorization': `Token ${token}` }
             });
             setDocumentos(res.data);
         } catch (err) {
             console.error("Error cargando documentos:", err);
         }
-    }, [empresaId, navigate]);
+    }, [empresaId, navigate, API_BASE_URL]);
 
     // --- CARGA DE NOVEDADES FILTRADAS ---
     const fetchNovedades = useCallback(async () => {
@@ -43,36 +47,51 @@ const DashboardPage = () => {
         if (!token || !empresaId) return;
 
         try {
-            const res = await axios.get(`http://127.0.0.1:8000/api/v1/novedades/?empresa=${empresaId}`, {
+            const res = await axios.get(`${API_BASE_URL}/novedades/?empresa=${empresaId}`, {
                 headers: { 'Authorization': `Token ${token}` }
             });
             setNovedades(res.data);
         } catch (err) {
             console.error("Error cargando novedades:", err);
         } finally {
+            // Aseguramos que el loader desaparezca al terminar las cargas principales
             setLoading(false);
         }
-    }, [empresaId]);
+    }, [empresaId, API_BASE_URL]);
 
     // --- PUBLICAR NOVEDAD (SOLO STAFF) ---
     const handleCreateNovedad = async (e) => {
         e.preventDefault();
-        if (!nuevaNovedad.titulo || !nuevaNovedad.contenido) return;
+        if (!nuevaNovedad.titulo || !nuevaNovedad.contenido) {
+            alert("Por favor completa el título y el contenido");
+            return;
+        }
 
         const token = sessionStorage.getItem('auth_token');
         setEnviandoNovedad(true);
+
         try {
-            await axios.post('http://127.0.0.1:8000/api/v1/novedades/', {
+            await axios.post(`${API_BASE_URL}/novedades/`, {
                 titulo: nuevaNovedad.titulo,
                 contenido: nuevaNovedad.contenido,
-                empresa: empresaId // Se vincula a la empresa actual
+                empresa: parseInt(empresaId) // Forzamos número entero
             }, {
                 headers: { 'Authorization': `Token ${token}` }
             });
+
             setNuevaNovedad({ titulo: '', contenido: '' });
-            fetchNovedades(); // Recargar lista
+            fetchNovedades();
+            alert("✅ Aviso publicado con éxito");
         } catch (err) {
-            alert("Error al publicar la novedad");
+            // CAMBIO 2: Aquí es donde pegas lo que te pasé para ver el error real
+            console.error("Detalles del error de Django:", err.response?.data);
+
+            // Si el error es porque el ID de empresa no existe o no se envió
+            const errorMsg = err.response?.data
+                ? JSON.stringify(err.response.data)
+                : "Error de conexión con el servidor";
+
+            alert(`❌ Error al publicar: ${errorMsg}`);
         } finally {
             setEnviandoNovedad(false);
         }
@@ -83,7 +102,7 @@ const DashboardPage = () => {
         if (!window.confirm("¿Estás seguro de que deseas eliminar este aviso?")) return;
         const token = sessionStorage.getItem('auth_token');
         try {
-            await axios.delete(`http://127.0.0.1:8000/api/v1/novedades/${id}/`, {
+            await axios.delete(`${API_BASE_URL}/novedades/${id}/`, {
                 headers: { 'Authorization': `Token ${token}` }
             });
             setNovedades(prev => prev.filter(n => n.id !== id));
@@ -93,8 +112,11 @@ const DashboardPage = () => {
     };
 
     useEffect(() => {
-        fetchDocumentos();
-        fetchNovedades();
+        // Ejecutar ambas cargas al montar o cambiar de empresa
+        const loadDashboard = async () => {
+            await Promise.all([fetchDocumentos(), fetchNovedades()]);
+        };
+        loadDashboard();
     }, [fetchDocumentos, fetchNovedades]);
 
     // --- LÓGICA DE SUBIDA DE ARCHIVOS ---
@@ -109,7 +131,7 @@ const DashboardPage = () => {
         formData.append('empresa', empresaId);
 
         try {
-            await axios.post('http://127.0.0.1:8000/api/v1/documentos/', formData, {
+            await axios.post(`${API_BASE_URL}/documentos/`, formData, {
                 headers: {
                     'Authorization': `Token ${token}`,
                     'Content-Type': 'multipart/form-data'
@@ -126,7 +148,6 @@ const DashboardPage = () => {
 
     return (
         <div style={styles.container}>
-            {/* Cabecera Principal */}
             <header style={styles.header}>
                 <div>
                     <h1 style={styles.title}>{empresaNombre}</h1>
@@ -138,11 +159,9 @@ const DashboardPage = () => {
                 </div>
             </header>
 
-            {/* SECCIÓN DE NOVEDADES */}
             <section style={styles.novedadesSection}>
                 <h3 style={{ color: '#003366', marginTop: 0 }}>📢 Novedades y Avisos</h3>
 
-                {/* Formulario rápido para Staff */}
                 {isStaff && (
                     <form onSubmit={handleCreateNovedad} style={styles.novedadForm}>
                         <input
@@ -168,7 +187,9 @@ const DashboardPage = () => {
                         novedades.map(n => (
                             <div key={n.id} style={styles.novedadCard}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <small style={styles.novedadFecha}>{new Date(n.fecha || n.created_at).toLocaleDateString()}</small>
+                                    <small style={styles.novedadFecha}>
+                                        {n.fecha ? new Date(n.fecha).toLocaleDateString() : 'Cargando...'}
+                                    </small>
                                     {isStaff && (
                                         <button onClick={() => handleDeleteNovedad(n.id)} style={styles.deleteNovedadBtn}>✕</button>
                                     )}
@@ -183,7 +204,6 @@ const DashboardPage = () => {
                 </div>
             </section>
 
-            {/* SECCIÓN DE DOCUMENTOS */}
             <main style={styles.main}>
                 <div style={styles.sectionHeader}>
                     <h2>📂 Repositorio de Documentos</h2>
@@ -228,6 +248,7 @@ const DashboardPage = () => {
     );
 };
 
+// ... (estilos se mantienen igual que tu versión anterior)
 const styles = {
     container: { minHeight: '100vh', backgroundColor: '#f4f7f6', fontFamily: 'sans-serif' },
     header: { backgroundColor: '#003366', color: 'white', padding: '15px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
@@ -237,13 +258,10 @@ const styles = {
     secondaryBtn: { background: 'transparent', border: '1px solid white', color: 'white', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' },
     logoutBtn: { background: '#cc0000', border: 'none', color: 'white', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' },
     novedadesSection: { padding: '20px 40px', backgroundColor: '#fff', borderBottom: '1px solid #ddd' },
-
-    // Estilos del nuevo formulario
     novedadForm: { display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '500px', marginBottom: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '8px', border: '1px solid #eee' },
     formInput: { padding: '8px', borderRadius: '4px', border: '1px solid #ccc' },
     formTextarea: { padding: '8px', borderRadius: '4px', border: '1px solid #ccc', minHeight: '60px', resize: 'vertical' },
     formBtn: { backgroundColor: '#003366', color: 'white', border: 'none', padding: '8px', borderRadius: '4px', cursor: 'pointer' },
-
     novedadesGrid: { display: 'flex', gap: '15px', overflowX: 'auto', paddingBottom: '10px' },
     novedadCard: { minWidth: '250px', maxWidth: '300px', backgroundColor: '#fffdf0', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #ffcc00', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', position: 'relative' },
     novedadFecha: { color: '#888', fontSize: '0.7rem' },
