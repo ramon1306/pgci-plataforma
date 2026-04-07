@@ -1,50 +1,44 @@
 import os
-from .settings import * # Importa la configuración base
+from .settings import *
 
 # --- SEGURIDAD CRÍTICA ---
 DEBUG = False
 
-# Reemplaza con la IP de tu VPS o tu dominio real
-ALLOWED_HOSTS = ['tu-dominio.com', 'tu-ip-vps', 'localhost', '127.0.0.1']
+# IP de tu VPS
+ALLOWED_HOSTS = ['104.236.113.179', 'localhost', '127.0.0.1']
 
 # --- SECRET KEY ---
-# Se recomienda generarla y ponerla en el .env del VPS
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'clave-secreta-de-emergencia-no-usar-en-vps-real')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-zb0f#vv7#+vxf04+(7fz7c!otcxetrqa3q30pwn(#bb)wt9xc3')
 
-# --- BASE DE DATOS (Configurada para Docker) ---
-# Usamos 'db' como HOST porque es el nombre del servicio en docker-compose.yml
-import dj_database_url
+# --- BASE DE DATOS (PostgreSQL Local) ---
+# Aquí eliminamos dj_database_url para evitar el error de la captura
 DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL')
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'pgci_db',
+        'USER': 'ramon',
+        'PASSWORD': 'rado1306', 
+        'HOST': '127.0.0.1',
+        'PORT': '5432',
+    }
 }
 
 # --- CONFIGURACIÓN DE CORS ---
-# Esto permite que tu Frontend (React) acceda a la API
-INSTALLED_APPS += ['corsheaders']
-MIDDLEWARE.insert(0, 'corsheaders.middleware.CorsMiddleware')
-
+# Solo agregamos las IPs, ya que 'corsheaders' ya está en el settings.py base
 CORS_ALLOWED_ORIGINS = [
+    "http://104.236.113.179",
     "http://localhost:3000",
-    "http://tu-ip-vps",  # Añade la IP de tu servidor cuando la tengas
-    "http://tu-dominio.com",
+    "http://127.0.0.1:3000",
 ]
-
-# Permitir que se envíen cookies/auth si fuera necesario
 CORS_ALLOW_CREDENTIALS = True
 
-# --- SEGURIDAD HTTPS ---
-# Nota: Si usas Nginx como proxy, estas líneas aseguran que Django sepa que viene de HTTPS
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = False  # Cambiar a True solo cuando ya tengas instalado el certificado SSL (HTTPS)
-SESSION_COOKIE_SECURE = False # Cambiar a True con SSL
-CSRF_COOKIE_SECURE = False    # Cambiar a True con SSL
+# Vital para altas de usuarios/empresas
+CSRF_TRUSTED_ORIGINS = [
+    "http://104.236.113.179",
+    "http://104.236.113.179:8000",
+    "http://127.0.0.1",
+]
 
 # --- ARCHIVOS ESTÁTICOS Y MEDIA ---
-# Rutas donde Docker y Nginx guardarán los archivos
 STATIC_ROOT = os.path.join(BASE_DIR, 'static_root')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media_root')
-
-STATIC_URL = '/static/'
-MEDIA_URL = '/media/'
