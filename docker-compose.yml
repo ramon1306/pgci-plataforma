@@ -16,16 +16,16 @@ services:
   backend:
     build: ./backend
     restart: always
-    # Este comando hace 3 cosas: migra la DB, recolecta CSS/JS y arranca el servidor Gunicorn
+    # Indentación corregida para evitar el error de mapeo YAML
     command: >
-      sh -c "python manage.py migrate --noinput &&
+      sh -c "python manage.py migrate &&
              python manage.py collectstatic --noinput &&
-             gunicorn --bind 0.0.0.0:8000 pgci_api.wsgi:application"
+             gunicorn pgci_api.wsgi:application --bind 0.0.0.0:8000 --workers 1 --timeout 120"
     volumes:
       - ./backend/static:/app/static_root
       - ./backend/media:/app/media_root
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       - DJANGO_SETTINGS_MODULE=pgci_api.settings_prod
       - DATABASE_URL=postgres://admin:password_seguro@db:5432/pgci_db
