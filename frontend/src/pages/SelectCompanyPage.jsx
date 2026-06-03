@@ -25,7 +25,7 @@ const SelectCompanyPage = () => {
         const fetchMisEmpresas = async () => {
             try {
                 // Asegúrate de que este endpoint en Django use el ClienteEmpresaSerializer
-                const res = await axios.get('http://127.0.0.1:8000/api/v1/mis-empresas/', {
+                const res = await axios.get('http://104.236.113.179/api/v1/mis-empresas/', {
                     headers: { 'Authorization': `Token ${token}` }
                 });
                 setVinculos(res.data);

@@ -19,32 +19,39 @@ from apps.core.serializers import (
     NovedadSerializer
 )
 
-# --- LOGIN ---
+# --- LOGIN ACTUALIZADO ---
+# --- LOGIN CON BYPASS PARA ADMIN ---
 class CustomLoginView(ObtainAuthToken):
     def post(self, request, *args, **kwargs):
-        # Usamos Any para evitar que el editor proteste por .data
-        req: Any = request
-        serializer = self.serializer_class(data=req.data, context={'request': request})
+        serializer = self.serializer_class(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        
-        v_data: Any = serializer.validated_data
-        user = v_data['user']
-        
+        user = serializer.validated_data['user']
         token, _ = Token.objects.get_or_create(user=user)
         
-        vinculos = ClienteEmpresa.objects.filter(cliente__user=user)
-        
-        # Construcción de datos de empresas silenciando errores de Pylance
-        empresas_data: List[Dict[str, Any]] = []
-        for v in vinculos:
-            emp = v.empresa
-            if emp:
+        empresas_data = []
+
+        # FUERZA BRUTA PARA ADMIN: Si es staff, ignoramos la tabla de vínculos
+        if user.is_staff or user.is_superuser:
+            # Traemos todas las empresas registradas en el sistema
+            todas = Empresa.objects.all()
+            for emp in todas:
                 empresas_data.append({
-                    'id': emp.pk, # .pk es reconocido mejor que .id por los editores
+                    'id': emp.pk,
                     'nombre': getattr(emp, 'razon_social', 'Sin nombre'),
-                    'rol': getattr(v, 'rol', ''),
-                    'permiso_subida': getattr(v, 'permiso_subida', False)
+                    'rol': 'Administrador Global',
+                    'permiso_subida': True
                 })
+        else:
+            # Lógica para clientes normales (Micaela, etc.)
+            vinculos = ClienteEmpresa.objects.filter(cliente__user=user)
+            for v in vinculos:
+                if v.empresa:
+                    empresas_data.append({
+                        'id': v.empresa.pk,
+                        'nombre': getattr(v.empresa, 'razon_social', 'Sin nombre'),
+                        'rol': getattr(v, 'rol', 'Cliente'),
+                        'permiso_subida': getattr(v, 'permiso_subida', False)
+                    })
 
         return Response({
             'token': token.key,
@@ -58,9 +65,16 @@ class CustomLoginView(ObtainAuthToken):
 # --- VISTAS PARA EL ROUTER (ADMIN) ---
 
 class EmpresaViewSet(viewsets.ModelViewSet):
-    queryset = Empresa.objects.all()
     serializer_class = EmpresaSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        # BYPASS: El admin gestiona todas las empresas
+        if user.is_staff:
+            return Empresa.objects.all()
+        # El cliente solo ve las suyas
+        return Empresa.objects.filter(vinculos__cliente__user=user).distinct()
 
 
 class AdminUsuarioViewSet(viewsets.ModelViewSet):
@@ -81,7 +95,6 @@ class VinculosViewSet(viewsets.ModelViewSet):
         return ClienteEmpresa.objects.filter(cliente__user=user)
 
 class NovedadViewSet(viewsets.ModelViewSet):
-    queryset = Novedad.objects.all().order_by('-fecha')
     serializer_class = NovedadSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -96,20 +109,17 @@ class NovedadViewSet(viewsets.ModelViewSet):
             vinculos = ClienteEmpresa.objects.filter(cliente__user=user).values_list('empresa_id', flat=True)
             qs = Novedad.objects.filter(empresa_id__in=list(vinculos))
 
-        # IMPORTANTE: Esto aplica el filtro que envía el Frontend
-        if empresa_id and empresa_id != 'null' and empresa_id != 'undefined':
+        if empresa_id and empresa_id not in ['null', 'undefined']:
             qs = qs.filter(empresa_id=empresa_id)
             
         return qs.order_by('-fecha')
 
     def perform_create(self, serializer):
-        # SEGURIDAD: Solo el Staff o usuarios con permiso especial deberían crear novedades
         if not self.request.user.is_staff:
             raise PermissionDenied("Solo el personal administrativo puede publicar novedades.")
         serializer.save()
 
 class DocumentoViewSet(viewsets.ModelViewSet):
-    queryset = Documento.objects.all()
     serializer_class = DocumentoSerializer
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
@@ -125,7 +135,7 @@ class DocumentoViewSet(viewsets.ModelViewSet):
             vinculos = ClienteEmpresa.objects.filter(cliente__user=user).values_list('empresa_id', flat=True)
             qs = Documento.objects.filter(empresa_id__in=list(vinculos))
             
-        if empresa_id:
+        if empresa_id and empresa_id not in ['null', 'undefined']:
             qs = qs.filter(empresa_id=empresa_id)
         return qs
 
@@ -140,7 +150,6 @@ class DocumentoViewSet(viewsets.ModelViewSet):
                 empresa=empresa,
                 permiso_subida=True
             ).exists()
-
             if not tiene_permiso:
                 raise PermissionDenied("No tienes permisos para subir archivos a esta empresa.")
         

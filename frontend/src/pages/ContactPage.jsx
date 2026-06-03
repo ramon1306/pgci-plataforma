@@ -26,7 +26,7 @@ const ContactPage = () => {
 
         try {
             // Reemplaza con tu IP si es necesario, pero 127.0.0.1 es el estándar local
-            const response = await fetch('http://127.0.0.1:8000/api/v1/contacto/', {
+            const response = await fetch('http://104.236.113.179/api/v1/contacto/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

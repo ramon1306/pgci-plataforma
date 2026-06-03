@@ -12,10 +12,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Agregamos 'apps' al Python Path
 sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 
-# Quick-start development settings
+# --- SEGURIDAD ---
 SECRET_KEY = 'django-insecure-zb0f#vv7#+vxf04+(7fz7c!otcxetrqa3q30pwn(#bb)wt9xc3'
-DEBUG = True
-ALLOWED_HOSTS = []
+DEBUG = True # Cambiar a False en producción definitiva
+
+ALLOWED_HOSTS = ['104.236.113.179', 'localhost', '127.0.0.1']
+
+# --- CONFIGURACIÓN DE CONFIANZA (Esto arregla el error de carga de datos) ---
+CSRF_TRUSTED_ORIGINS = ['http://104.236.113.179']
+CORS_ALLOWED_ORIGINS = ['http://104.236.113.179']
+CORS_ALLOW_CREDENTIALS = True
 
 # Application definition
 INSTALLED_APPS = [
@@ -38,22 +44,15 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware', # Debe ir lo más arriba posible
-    'django.middleware.common.CommonMiddleware',
+    'corsheaders.middleware.CorsMiddleware', 
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-
-# Configuración de CORS
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'pgci_api.urls'
 
@@ -65,7 +64,7 @@ TEMPLATES = [
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
-                'django.template.context_processors.media', # Añadido para manejo de archivos
+                'django.template.context_processors.media',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
@@ -75,11 +74,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'pgci_api.wsgi.application'
 
-# Database
+# --- DATABASE (Configurada para el PostgreSQL de tu Docker Compose) ---
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'pgci_db',
+        'USER': 'admin',
+        'PASSWORD': 'password_seguro',
+        'HOST': 'db', # Nombre del servicio en docker-compose
+        'PORT': '5432',
     }
 }
 
@@ -103,17 +106,17 @@ REST_FRAMEWORK = {
 }
 
 # Internationalization
-LANGUAGE_CODE = 'es-ar' # Cambiado a Español Argentina
+LANGUAGE_CODE = 'es-ar'
 TIME_ZONE = 'America/Argentina/Buenos_Aires'
 USE_I18N = True
 USE_TZ = True
 
 # Static and Media files
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
-# CONFIGURACIÓN PARA ARCHIVOS SUBIDOS (PDFs, Imágenes, etc.)
+# CONFIGURACIÓN PARA ARCHIVOS SUBIDOS
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

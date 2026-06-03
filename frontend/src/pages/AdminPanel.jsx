@@ -33,10 +33,10 @@ const AdminPanel = () => {
 
         try {
             const [resUsers, resEmpresas, resDocs, resVinculos] = await Promise.all([
-                axios.get('http://127.0.0.1:8000/api/v1/usuarios/', { headers }),
-                axios.get('http://127.0.0.1:8000/api/v1/empresas/', { headers }),
-                axios.get('http://127.0.0.1:8000/api/v1/documentos/', { headers }),
-                axios.get('http://127.0.0.1:8000/api/v1/vinculos/', { headers })
+                axios.get('http://104.236.113.179/api/v1/usuarios/', { headers }),
+                axios.get('http://104.236.113.179/api/v1/empresas/', { headers }),
+                axios.get('http://104.236.113.179/api/v1/documentos/', { headers }),
+                axios.get('http://104.236.113.179/api/v1/vinculos/', { headers })
             ]);
 
             setUsuarios(resUsers.data);
@@ -59,7 +59,7 @@ const AdminPanel = () => {
     const handleSubmitUsuario = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('http://127.0.0.1:8000/api/v1/usuarios/', nuevoUsuario, {
+            await axios.post('http://104.236.113.179/api/v1/usuarios/', nuevoUsuario, {
                 headers: { Authorization: `Token ${sessionStorage.getItem('auth_token')}` }
             });
             alert("✅ Usuario Creado");
@@ -71,7 +71,7 @@ const AdminPanel = () => {
     const handleSubmitEmpresa = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('http://127.0.0.1:8000/api/v1/empresas/', nuevaEmpresa, {
+            await axios.post('http://104.236.113.179/api/v1/empresas/', nuevaEmpresa, {
                 headers: { Authorization: `Token ${sessionStorage.getItem('auth_token')}` }
             });
             alert("✅ Empresa Creada");
@@ -88,7 +88,7 @@ const AdminPanel = () => {
         data.append('archivo', docData.archivo);
 
         try {
-            await axios.post('http://127.0.0.1:8000/api/v1/documentos/', data, {
+            await axios.post('http://104.236.113.179/api/v1/documentos/', data, {
                 headers: {
                     Authorization: `Token ${sessionStorage.getItem('auth_token')}`,
                     'Content-Type': 'multipart/form-data'
@@ -103,7 +103,7 @@ const AdminPanel = () => {
     const handleSubmitRelacion = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('http://127.0.0.1:8000/api/v1/vinculos/', formData, {
+            await axios.post('http://104.236.113.179/api/v1/vinculos/', formData, {
                 headers: { Authorization: `Token ${sessionStorage.getItem('auth_token')}` }
             });
             alert("✅ Vínculo creado");
@@ -115,7 +115,7 @@ const AdminPanel = () => {
     const handleDeleteVinculo = async (id) => {
         if (!window.confirm("¿Eliminar este acceso?")) return;
         try {
-            await axios.delete(`http://127.0.0.1:8000/api/v1/vinculos/${id}/`, {
+            await axios.delete(`http://104.236.113.179/api/v1/vinculos/${id}/`, {
                 headers: { Authorization: `Token ${sessionStorage.getItem('auth_token')}` }
             });
             fetchData();
